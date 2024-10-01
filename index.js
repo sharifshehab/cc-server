@@ -100,6 +100,8 @@ async function run() {
         }, async (req, res) => {
             const page = parseInt(req.query.page);
             const size = parseInt(req.query.size);
+
+          
          
             // Fetch only category names
             if (req.query?.category === 'category') {
@@ -113,8 +115,19 @@ async function run() {
             if (req.query?.email) {
                 currentUser = { email: req.query.email }
             }
+            
+            /* search field */
+            const searchValue = req.query.search;
 
-            let query = craftCollection.find(currentUser).skip(page * size).limit(size).sort({ _id: -1 });
+            let search = {};
+            if (typeof searchValue === 'string' && searchValue.trim() !== '') {
+                search = {
+                    name: { $regex: searchValue, $options: "i" }
+                };
+            }
+
+            
+            let query = craftCollection.find(search, currentUser).skip(page * size).limit(size).sort({ _id: -1 });
             /* show latest items */
 
             // Fetch only 4 items
