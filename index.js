@@ -98,6 +98,8 @@ async function run() {
 
             next();  // If no email, continue without verifyingToken
         }, async (req, res) => {
+            const page = parseInt(req.query.page);
+            const size = parseInt(req.query.size);
          
             // Fetch only category names
             if (req.query?.category === 'category') {
@@ -112,7 +114,7 @@ async function run() {
                 currentUser = { email: req.query.email }
             }
 
-            let query = craftCollection.find(currentUser).sort({ _id: -1 });
+            let query = craftCollection.find(currentUser).skip(page * size).limit(size).sort({ _id: -1 });
             /* show latest items */
 
             // Fetch only 4 items
@@ -124,6 +126,12 @@ async function run() {
             const result = await query.toArray();
             res.send(result);
         });
+
+        /* Pagination */
+        app.get('/craftsCount', async (req, res) => {
+            const count = await craftCollection.estimatedDocumentCount();
+            res.send({ count });
+        })
 
 
         /* add items to DB */
