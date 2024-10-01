@@ -124,8 +124,13 @@ async function run() {
                 query.name = { $regex: searchValue, $options: 'i' };
             }
 
-            // Create the query for fetching the items, applying pagination
-            let api = craftCollection.find(query).skip(page * size).limit(size).sort({ _id: -1 });
+            // Fetch the filtered results without applying pagination
+            let api = craftCollection.find(query).sort({ _id: -1 });
+
+            // If no search, apply pagination
+            if (!searchValue) {
+                api = api.skip(page * size).limit(size);
+            }
 
             // Fetch only 4 items ( limit is provided = 4 )
             const limit = parseInt(req.query.limit); // Get the 'post limit' from the query parameter              
@@ -138,7 +143,7 @@ async function run() {
             res.send(result);
         });
 
-        
+
         /* Pagination */
         app.get('/craftsCount', async (req, res) => {
             const count = await craftCollection.estimatedDocumentCount();
@@ -170,6 +175,3 @@ app.listen(port, () => {
     console.log(`Server running on port ${port}`)
 });
 
-/* 
-
-*/
