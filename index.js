@@ -9,7 +9,7 @@ const port = process.env.PORT || 5000;
 // middleware
 app.use(cors(
     {
-        origin: ['http://localhost:5173'],
+        origin: ['http://localhost:5173'],  /* current server-side url */
         credentials: true
     }
 ));
@@ -31,23 +31,31 @@ const client = new MongoClient(uri, {
     }
 });
 
+// To match server-side token with the client-side token
 const verifyingToken = (req, res, next) => {
+    // Retrieve the token from the client side
     const token = req.cookies?.token;
-    console.log('verifyingToken', req.cookies);
+    // console.log('verifyingToken', req.cookies);
 
+    // checking if user has token
     if (!token) {
-        return res.status(401).send({ message: 'Not authorized' });
+        return res.status(401).send({ message: 'Not authorized' });  // No token = client is not authorized
     }
 
+    // if token is there, is it valid or expired!
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
+            // If the token is invalid or expired, send a 401 Unauthorized response
             return res.status(401).send({ message: 'Unauthorized' });
         }
+
+        // If token is successfully verified, the decoded token (i.e., user data) is added to the request object
         req.user = decoded;
+
+        // Call next() to pass control to the next middleware or route handler
         next();
     });
 };
-
 
 async function run() {
     try {
@@ -60,22 +68,27 @@ async function run() {
         /* DB-name */         /* Table-name */
 
 
-        /* JWT */
+        /* Generate token with "JWT" */
         app.post('/jwt', async (req, res) => {
-            const user = req.body;
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+            const user = req.body; /* user for whom the token will be generated */
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });   /* The Token */
+                                                /* secrete key */        /* token expire time */
+            
+            // save the token on client-side in "localstorage cookie"
             res.cookie('token', token, {
                 httpOnly: true,
                 secure: true,
                 sameSite: 'none'
             })
-                .send({ success: true });
+            .send({ success: true });
         });
 
+        /* Remove token from the cookies after user log-out */
         app.post('/logout', async (req, res) => {
             const user = req.body;
             res.clearCookie('token', { maxAge: 0 }).send({ success: true });
         });
+
 
         /* getting items from the DB */
         app.get('/crafts', async (req, res, next) => {
@@ -127,8 +140,8 @@ async function run() {
             // Fetch the filtered results without applying pagination
             let api = craftCollection.find(query).sort({ _id: -1 });
 
-            // If no search, apply pagination
             if (!searchValue) {
+                // If no search, apply pagination
                 api = api.skip(page * size).limit(size);
             }
 
@@ -144,7 +157,7 @@ async function run() {
         });
 
 
-        /* Pagination */
+        /* Pagination - all items count */
         app.get('/craftsCount', async (req, res) => {
             const count = await craftCollection.estimatedDocumentCount();
             res.send({ count });
