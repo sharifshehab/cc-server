@@ -98,48 +98,47 @@ async function run() {
 
             next();  // If no email, continue without verifyingToken
         }, async (req, res) => {
-            const page = parseInt(req.query.page);
-            const size = parseInt(req.query.size);
 
-          
-         
-            // Fetch only category names
+            // Pagination: Default to 0 for page and 10 for size if not provided
+            const page = parseInt(req.query.page) || 0;
+            const size = parseInt(req.query.size) || 10;
+
+            // Fetch only category names if the query asks for categories
             if (req.query?.category === 'category') {
                 const items = await craftCollection.find().project({ category: 1 }).toArray(); // Fetch only category field
                 const categories = [...new Set(items.map(item => item.category))]; // Get unique category names
                 return res.send(categories);
             }
 
+            // Initialize the query object
+            let query = {};
+
             // Fetch only current user uploaded item
-            let currentUser = {}
             if (req.query?.email) {
-                currentUser = { email: req.query.email }
+                query.email = req.query.email;
             }
-            
-            /* search field */
+
+            // Search by 'name' using regex (case-insensitive)
             const searchValue = req.query.search;
-
-            let search = {};
             if (typeof searchValue === 'string' && searchValue.trim() !== '') {
-                search = {
-                    name: { $regex: searchValue, $options: "i" }
-                };
+                query.name = { $regex: searchValue, $options: 'i' };
             }
 
-            
-            let query = craftCollection.find(search, currentUser).skip(page * size).limit(size).sort({ _id: -1 });
-            /* show latest items */
+            // Create the query for fetching the items, applying pagination
+            let api = craftCollection.find(query).skip(page * size).limit(size).sort({ _id: -1 });
 
-            // Fetch only 4 items
-            const limit = parseInt(req.query.limit);  // Get the 'post limit' from the query parameter              
-            if (limit) {
-                query = query.limit(limit);  // Apply limit if specified
+            // Fetch only 4 items ( limit is provided = 4 )
+            const limit = parseInt(req.query.limit); // Get the 'post limit' from the query parameter              
+            if (limit && !req.query.page) {
+                // Apply the limit only if pagination is not requested (to avoid conflicts)
+                api = api.limit(limit);
             }
 
-            const result = await query.toArray();
+            const result = await api.toArray();
             res.send(result);
         });
 
+        
         /* Pagination */
         app.get('/craftsCount', async (req, res) => {
             const count = await craftCollection.estimatedDocumentCount();
